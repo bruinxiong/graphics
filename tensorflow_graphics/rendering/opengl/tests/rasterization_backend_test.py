@@ -51,7 +51,8 @@ def _proxy_rasterize(vertices, triangles, view_projection_matrices):
   return rasterization_backend.rasterize(vertices, triangles,
                                          view_projection_matrices,
                                          (_IMAGE_WIDTH, _IMAGE_HEIGHT),
-                                         _ENABLE_CULL_FACE, _NUM_LAYERS)
+                                         _ENABLE_CULL_FACE,
+                                         _NUM_LAYERS).layer(0)
 
 
 class RasterizationBackendTest(test_case.TestCase):
@@ -151,7 +152,7 @@ class RasterizationBackendTest(test_case.TestCase):
     with self.subTest(name="barycentric_coordinates_triangle_0"):
       geometry_0 = tf.gather(vertices, triangles[0, :], axis=1)
       pixels_0 = tf.transpose(
-          grid.generate((3.5, 2.5), (6.5, 4.5), (4, 3)), perm=(1, 0, 2))
+          a=grid.generate((3.5, 2.5), (6.5, 4.5), (4, 3)), perm=(1, 0, 2))
       barycentrics_gt_0 = perspective_correct_interpolation(
           geometry_0, pixels_0)
       self.assertAllClose(
@@ -162,7 +163,7 @@ class RasterizationBackendTest(test_case.TestCase):
     with self.subTest(name="barycentric_coordinates_triangle_1"):
       geometry_1 = tf.gather(vertices, triangles[1, :], axis=1)
       pixels_1 = tf.transpose(
-          grid.generate((3.5, 0.5), (6.5, 1.5), (4, 2)), perm=(1, 0, 2))
+          a=grid.generate((3.5, 0.5), (6.5, 1.5), (4, 2)), perm=(1, 0, 2))
       barycentrics_gt_1 = perspective_correct_interpolation(
           geometry_1, pixels_1)
       self.assertAllClose(

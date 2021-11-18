@@ -13,14 +13,20 @@
 # limitations under the License.
 """CPU rasterization backend."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import enum
 from typing import Tuple
 
+from six.moves import range
 import tensorflow as tf
 
 from tensorflow_graphics.rendering import framebuffer as fb
 from tensorflow_graphics.rendering import utils
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 # pylint: disable=g-import-not-at-top
 try:
@@ -39,13 +45,14 @@ class FaceCullingMode(enum.IntEnum):
   FRONT = 2
 
 
-def rasterize(vertices: tf.Tensor,
-              triangles: tf.Tensor,
-              view_projection_matrices: tf.Tensor,
-              image_size: Tuple[int, int],
-              enable_cull_face: bool,
-              num_layers: int,
-              name=None):
+def rasterize(
+    vertices: type_alias.TensorLike,
+    triangles: type_alias.TensorLike,
+    view_projection_matrices: type_alias.TensorLike,
+    image_size: Tuple[int, int],
+    enable_cull_face: bool,
+    num_layers: int,
+    name: str = "rasterization_backend_cpu_rasterize") -> fb.Framebuffer:
   """Rasterizes the scene.
 
     This rasterizer estimates which triangle is associated with each pixel using
@@ -62,9 +69,8 @@ def rasterize(vertices: tf.Tensor,
       in pixels of the rasterized image.
     enable_cull_face: A boolean, which will enable BACK face culling when True
       and no face culling when False.
-    num_layers: Number of depth layers to render. Output tensors shape depends
-      on whether num_layers=1 or not.
-    name: A name for this op. Defaults to 'rasterization_backend_cpu_rasterize'.
+    num_layers: Number of depth layers to render.
+    name: A name for this op. Defaults to "rasterization_backend_cpu_rasterize".
 
   Returns:
     A Framebuffer containing the rasterized values: barycentrics, triangle_id,
@@ -79,10 +85,9 @@ def rasterize(vertices: tf.Tensor,
     The barycentric coordinates can be used to determine pixel validity instead.
     See framebuffer.py for a description of the Framebuffer fields.
   """
-  with tf.compat.v1.name_scope(name, "rasterization_backend_cpu_rasterize",
-                               (vertices, triangles, view_projection_matrices)):
-    vertices = tf.convert_to_tensor(vertices)
-    triangles = tf.convert_to_tensor(triangles)
+  with tf.name_scope(name):
+    vertices = tf.convert_to_tensor(value=vertices)
+    triangles = tf.convert_to_tensor(value=triangles)
     view_projection_matrices = tf.convert_to_tensor(
         value=view_projection_matrices)
 
@@ -153,12 +158,6 @@ def rasterize(vertices: tf.Tensor,
 
     # Shape: [batch_size, num_layers, image_height, image_width, 3]
     barycentrics = tf.stack(per_image_barycentrics, axis=0)
-
-    if num_layers == 1:
-      triangle_id = tf.squeeze(triangle_id, axis=1)
-      vertex_ids = tf.squeeze(vertex_ids, axis=1)
-      mask = tf.squeeze(mask, axis=1)
-      barycentrics = tf.squeeze(barycentrics, axis=1)
 
     return fb.Framebuffer(
         foreground_mask=mask,

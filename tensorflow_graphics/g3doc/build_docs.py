@@ -11,7 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Script to generate external api_docs for tf-graphics."""
+"""Script to generate external api_docs for tf-graphics.
+
+This script will generate documentation only for python files that are included
+in the __init__.py of their local module. If your module doesn't show up in the
+documentation after running this script, make sure it appears in the appropriate
+__init__.py. The import should be placed inside a `if _import_tfg_docs():`
+clause so it is only imported at doc generation time.
+"""
 # flake8: noqa
 
 from __future__ import absolute_import
@@ -24,6 +31,7 @@ from absl import app
 from absl import flags
 
 from tensorflow_docs.api_generator import generate_lib
+from tensorflow_docs.api_generator import public_api
 
 os.environ["TFG_DOC_IMPORTS"] = "1"
 
@@ -53,7 +61,8 @@ def main(_):
       base_dir=os.path.dirname(tfg.__file__),
       search_hints=FLAGS.search_hints,
       code_url_prefix=FLAGS.code_url_prefix,
-      site_path=FLAGS.site_path)
+      site_path=FLAGS.site_path,
+      callbacks=[public_api.local_definitions_filter])
 
   doc_generator.build(output_dir=FLAGS.output_dir)
 

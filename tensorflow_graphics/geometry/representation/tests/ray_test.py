@@ -56,6 +56,124 @@ class RayTest(test_case.TestCase):
     self.weights = tf.identity(tf.convert_to_tensor(value=self.weights_values))
 
   @parameterized.parameters(
+      ("Not all batch dimensions are identical.",
+       512, 1.0, 4.0, (4, 3), (5, 3)),
+      ("must have exactly 3 dimensions in axis",
+       512, 1.0, 4.0, (4, 2), (4, 2)),
+      ("Not all batch dimensions are identical.",
+       512, 1.0, 4.0, (2, 4, 3), (1, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       512, (2, 5), (2, 4), (2, 4, 3), (2, 4, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       512, (2, 5), (2, 5), (2, 4, 3), (2, 4, 3)),
+  )
+  def test_stratified_sampling_exception_raised(self, error_msg, n_samples,
+                                                near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_raised(ray.sample_stratified_1d, error_msg, shapes,
+                                    near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      ("stratified", 512, 1.0, 4.0, (4, 3), (4, 3)),
+      ("geomspace", 512, (4,), (4,), (4, 3), (4, 3)),
+      ("regular", 128, 1.0, 4.0, (5, 4, 3), (5, 4, 3)),
+      ("regular_inverse", 512, (5, 4), (5, 4), (5, 4, 3), (5, 4, 3)),
+      ("uniform", 512, (1,), (1,), (5, 4, 3), (5, 4, 3)),
+      ("stratified_geomspace", 512, 1.0, (1,), (5, 4, 3), (5, 4, 3)),
+      ("stratified", 512, 1.0, (5, 4), (5, 4, 3), (5, 4, 3)),
+      ("stratified", 512, 1.0, 4.0, (6, 5, 4, 3), (6, 5, 4, 3)),
+  )
+  def test_sample_1d_exception_is_not_raised(self, strategy, n_samples,
+                                             near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_not_raised(ray.sample_1d, shapes,
+                                        strategy=strategy,
+                                        near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      ("Not all batch dimensions are identical.",
+       "stratified", 512, 1.0, 4.0, (4, 3), (5, 3)),
+      ("must have exactly 3 dimensions in axis",
+       "stratified", 512, 1.0, 4.0, (4, 2), (4, 2)),
+      ("Not all batch dimensions are identical.",
+       "stratified", 512, 1.0, 4.0, (2, 4, 3), (1, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       "stratified", 512, (2, 5), (2, 4), (2, 4, 3), (2, 4, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       "stratified", 512, (2, 5), (2, 5), (2, 4, 3), (2, 4, 3)),
+      ("unknown 'strategy'",
+       "stratifiedsdfs", 512, 1.0, 4.0, (6, 5, 4, 3), (6, 5, 4, 3)),
+  )
+  def test_sample_1d_exception_raised(self, error_msg, strategy, n_samples,
+                                      near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_raised(ray.sample_1d, error_msg, shapes,
+                                    strategy=strategy,
+                                    near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      (512, 1.0, 4.0, (4, 3), (4, 3)),
+      (512, (4,), (4,), (4, 3), (4, 3)),
+      (128, 1.0, 4.0, (5, 4, 3), (5, 4, 3)),
+      (512, (5, 4), (5, 4), (5, 4, 3), (5, 4, 3)),
+      (512, (1,), (1,), (5, 4, 3), (5, 4, 3)),
+      (512, 1.0, (1,), (5, 4, 3), (5, 4, 3)),
+      (512, 1.0, (5, 4), (5, 4, 3), (5, 4, 3)),
+      (512, 1.0, 4.0, (6, 5, 4, 3), (6, 5, 4, 3)),
+  )
+  def test_stratified_sampling_exception_is_not_raised(self, n_samples,
+                                                       near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_not_raised(ray.sample_stratified_1d, shapes,
+                                        near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      ("Not all batch dimensions are identical.", 512,
+       (4, 3), (5, 3), (5, 3), (5, 3)),
+      ("must have exactly 3 dimensions in axis", 512,
+       (4, 2), (4, 2), (4, 11), (4, 11)),
+      ("Not all batch dimensions are identical.", 512,
+       (2, 4, 3), (1, 3), (5, 3), (5, 3)),
+      ("must have the same number of dimensions", 512,
+       (5, 3), (5, 3), (5, 11), (5, 12)),
+  )
+  def test_inverse_transform_stratified_exception_raised(self,
+                                                         error_msg,
+                                                         n_samples,
+                                                         *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    self.assert_exception_is_raised(ray.sample_inverse_transform_stratified_1d,
+                                    error_msg, shapes, n_samples=n_samples)
+
+  @parameterized.parameters(
+      (512, (4, 3), (4, 3), (4, 13), (4, 13)),
+      (128, (5, 4, 3), (5, 4, 3), (5, 4, 13), (5, 4, 13)),
+  )
+  def test_inverse_transform_stratified_exception_is_not_raised(self,
+                                                                n_samples,
+                                                                *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    self.assert_exception_is_not_raised(
+        ray.sample_inverse_transform_stratified_1d,
+        shapes, n_samples=n_samples)
+
+  @parameterized.parameters(
       ("Not all batch dimensions are identical.", (4, 3), (5, 3), (4,)),
       ("must have exactly 3 dimensions in axis", (4, 2), (4, 2), (4,)),
       ("must have a rank greater than 1", (3,), (3,), (None,)),

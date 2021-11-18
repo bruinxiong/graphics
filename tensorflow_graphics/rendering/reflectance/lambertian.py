@@ -25,13 +25,14 @@ from tensorflow_graphics.math import vector
 from tensorflow_graphics.util import asserts
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
-def brdf(direction_incoming_light,
-         direction_outgoing_light,
-         surface_normal,
-         albedo,
-         name=None):
+def brdf(direction_incoming_light: type_alias.TensorLike,
+         direction_outgoing_light: type_alias.TensorLike,
+         surface_normal: type_alias.TensorLike,
+         albedo: type_alias.TensorLike,
+         name: str = "lambertian_brdf") -> tf.Tensor:
   """Evaluates the brdf of a Lambertian surface.
 
   Note:
@@ -64,9 +65,7 @@ def brdf(direction_incoming_light,
     InvalidArgumentError: if at least one element of `albedo` is outside of
     [0,1].
   """
-  with tf.compat.v1.name_scope(name, "lambertian_brdf", [
-      direction_incoming_light, direction_outgoing_light, surface_normal, albedo
-  ]):
+  with tf.name_scope(name):
     direction_incoming_light = tf.convert_to_tensor(
         value=direction_incoming_light)
     direction_outgoing_light = tf.convert_to_tensor(
@@ -110,12 +109,11 @@ def brdf(direction_incoming_light,
     min_dot = tf.minimum(dot_incoming_light_surface_normal,
                          dot_outgoing_light_surface_normal)
     common_shape = shape.get_broadcasted_shape(min_dot.shape, albedo.shape)
-    d_val = lambda dim: 1 if dim is None else tf.compat.v1.dimension_value(dim)
+    d_val = lambda dim: 1 if dim is None else tf.compat.dimension_value(dim)
     common_shape = [d_val(dim) for dim in common_shape]
     condition = tf.broadcast_to(tf.greater_equal(min_dot, 0.0), common_shape)
     albedo = tf.broadcast_to(albedo, common_shape)
-    return tf.compat.v1.where(condition, albedo / math.pi,
-                              tf.zeros_like(albedo))
+    return tf.where(condition, albedo / math.pi, tf.zeros_like(albedo))
 
 
 # API contains all public functions and classes.

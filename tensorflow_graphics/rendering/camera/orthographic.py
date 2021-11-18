@@ -28,9 +28,11 @@ import tensorflow as tf
 
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
-def project(point_3d, name=None):
+def project(point_3d: type_alias.TensorLike,
+            name: str = "orthographic_project") -> tf.Tensor:
   r"""Projects a 3d point onto the 2d camera plane.
 
   Projects a 3d point \\((x, y, z)\\) to a 2d point \\((x', y')\\) onto the
@@ -57,17 +59,18 @@ def project(point_3d, name=None):
   Raises:
     ValueError: If the shape of `point_3d` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "orthographic_project", [point_3d]):
+  with tf.name_scope(name):
     point_3d = tf.convert_to_tensor(value=point_3d)
 
     shape.check_static(
         tensor=point_3d, tensor_name="point_3d", has_dim_equals=(-1, 3))
 
-    point_xy, _ = tf.compat.v1.split(point_3d, (2, 1), axis=-1)
+    point_xy, _ = tf.split(point_3d, (2, 1), axis=-1)
     return point_xy
 
 
-def ray(point_2d, name=None):
+def ray(point_2d: type_alias.TensorLike,
+        name: str = "orthographic_ray") -> tf.Tensor:
   r"""Computes the 3d ray for a 2d point (the z component of the ray is 1).
 
   Computes the 3d ray \\((r_x, r_y, 1)\\) for a 2d point \\((x', y')\\) on the
@@ -94,7 +97,7 @@ def ray(point_2d, name=None):
   Raises:
     ValueError: If the shape of `point_2d` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "orthographic_ray", [point_2d]):
+  with tf.name_scope(name):
     point_2d = tf.convert_to_tensor(value=point_2d)
 
     shape.check_static(
@@ -105,7 +108,9 @@ def ray(point_2d, name=None):
     return tf.concat((point_2d * 0.0, ones), axis=-1)
 
 
-def unproject(point_2d, depth, name=None):
+def unproject(point_2d: type_alias.TensorLike,
+              depth: type_alias.TensorLike,
+              name: str = "orthographic_unproject") -> tf.Tensor:
   r"""Unprojects a 2d point in 3d.
 
   Unprojects a 2d point \\((x', y')\\) to a 3d point \\((x, y, z)\\) given its
@@ -134,8 +139,7 @@ def unproject(point_2d, depth, name=None):
   Raises:
     ValueError: If the shape of `point_2d`, `depth` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "orthographic_unproject",
-                               [point_2d, depth]):
+  with tf.name_scope(name):
     point_2d = tf.convert_to_tensor(value=point_2d)
     depth = tf.convert_to_tensor(value=depth)
 

@@ -14,6 +14,7 @@
 """Util functions for rasterization tests."""
 
 import os
+import random
 
 import numpy as np
 import tensorflow as tf
@@ -51,6 +52,10 @@ def make_look_at_matrix(
   """Shortcut util function to creat model-to-eye matrix for tests."""
   camera_up = (0.0, 1.0, 0.0)
   return look_at.right_handed(camera_origin, look_at_point, camera_up)
+
+
+def get_identity_view_projection_matrix():
+  return tf.expand_dims(tf.eye(4), axis=0)
 
 
 def compare_images(test_case,
@@ -91,6 +96,7 @@ def compare_images(test_case,
                    (baseline_image.dtype, image.dtype))
   shape.check_static(
       tensor=baseline_image, tensor_name="baseline_image", has_rank=4)
+  shape.check_static(tensor=image, tensor_name="image", has_rank=4)
   # Flatten height, width and channels dimensions since we're interested in
   # error per image.
   image_height, image_width = image.shape[1:3]
@@ -124,3 +130,44 @@ def load_baseline_image(filename, image_shape=None):
     # Graph-mode requires image shape to be known in advance.
     baseline_image = tf.ensure_shape(baseline_image, image_shape)
   return baseline_image
+
+
+def set_batch_shape(tensor, batch_shape):
+  return tf.broadcast_to(tensor, batch_shape + list(tensor.shape))
+
+
+def create_rasterizer_inputs(batch_shape):
+  """Creates random inputs for rasterization tests with given batch shape."""
+  image_height = random.randint(3, 5)
+  image_width = random.randint(6, 9)
+  num_attributes1 = 4
+  num_attributes2 = 11
+
+  # Create vertices.
+  vertices = np.array(((0.0, -4.0, 1.0), (-4.0, 0.0, 1.0), (0.0, 4, 1.0)),
+                      np.float32)
+  vertices = set_batch_shape(vertices, batch_shape)
+
+  # Create attributes dictionary.
+  attributes1 = np.random.uniform(-1.0, 1.0,
+                                  (3, num_attributes1)).astype(np.float32)
+  attributes1 = set_batch_shape(attributes1, batch_shape)
+  attributes2 = np.random.uniform(-1.0, 1.0,
+                                  (3, num_attributes2)).astype(np.float32)
+  attributes2 = set_batch_shape(attributes2, batch_shape)
+
+  attributes_dictionary = {}
+  attributes_dictionary["attribute1"] = attributes1
+  attributes_dictionary["attribute2"] = attributes2
+  triangles = np.array(((0, 1, 2),), np.int32)
+
+  # Construct the view projection matrix.
+  model_to_eye_matrix = make_look_at_matrix(look_at_point=(0.0, 0.0, 1.0))
+  model_to_eye_matrix = set_batch_shape(model_to_eye_matrix, batch_shape)
+  perspective_matrix = make_perspective_matrix(image_width, image_height)
+  perspective_matrix = set_batch_shape(perspective_matrix, batch_shape)
+  view_projection_matrix = tf.linalg.matmul(perspective_matrix,
+                                            model_to_eye_matrix)
+
+  return (vertices, triangles, attributes_dictionary, model_to_eye_matrix,
+          perspective_matrix, view_projection_matrix, image_height, image_width)

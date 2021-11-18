@@ -13,11 +13,13 @@
 # limitations under the License.
 """OpenGL rasterization backend for TF Graphics."""
 
+from typing import Optional, Tuple
 import tensorflow as tf
 
 from tensorflow_graphics.rendering import framebuffer as fb
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 # pylint: disable=g-import-not-at-top
 try:
@@ -29,8 +31,8 @@ except ImportError:
 # pylint: enable=g-import-not-at-top
 
 
-def _dim_value(dim):
-  return 1 if dim is None else tf.compat.v1.dimension_value(dim)
+def _dim_value(dim: Optional[int] = None) -> int:
+  return 1 if dim is None else tf.compat.dimension_value(dim)
 
 
 # Empty vertex shader; all the work happens in the geometry shader.
@@ -98,13 +100,13 @@ void main() {
 """
 
 
-def rasterize(vertices,
-              triangles,
-              view_projection_matrices,
-              image_size,
-              enable_cull_face,
-              num_layers,
-              name=None):
+def rasterize(vertices: type_alias.TensorLike,
+              triangles: type_alias.TensorLike,
+              view_projection_matrices: type_alias.TensorLike,
+              image_size: Tuple[int, int],
+              enable_cull_face: bool,
+              num_layers: int,
+              name: str = "rasterization_backend_rasterize") -> fb.Framebuffer:
   """Rasterizes the scene.
 
     This rasterizer estimates which triangle is associated with each pixel using
@@ -127,7 +129,7 @@ def rasterize(vertices,
       and no face culling when False. Default is True.
     num_layers: Number of depth layers to render. Not supported by current
       backend yet, but exists for interface compatibility.
-    name: A name for this op. Defaults to 'rasterization_backend_rasterize'.
+    name: A name for this op. Defaults to "rasterization_backend_rasterize".
 
   Returns:
     A Framebuffer containing the rasterized values: barycentrics, triangle_id,
@@ -142,9 +144,7 @@ def rasterize(vertices,
     The barycentric coordinates can be used to determine pixel validity instead.
     See framebuffer.py for a description of the Framebuffer fields.
   """
-  with tf.compat.v1.name_scope(name, "rasterization_backend_rasterize",
-                               (vertices, triangles, view_projection_matrices)):
-
+  with tf.name_scope(name):
     if num_layers != 1:
       raise ValueError("OpenGL rasterizer only supports single layer.")
 
@@ -198,18 +198,25 @@ def rasterize(vertices,
     # `None` for tensorflow graph mode, therefore we have to fix it in order to
     # have explicit shape.
     width, height = image_size
-    triangle_index = tf.reshape(triangle_index, [batch_size, height, width, 1])
+    triangle_index = tf.reshape(triangle_index,
+                                [batch_size, num_layers, height, width, 1])
     barycentric_coordinates = rasterized[..., 1:3]
     barycentric_coordinates = tf.concat(
         (barycentric_coordinates, 1.0 - barycentric_coordinates[..., 0:1] -
          barycentric_coordinates[..., 1:2]),
         axis=-1)
+    barycentric_coordinates = tf.reshape(
+        barycentric_coordinates, [batch_size, num_layers, height, width, 3])
     mask = rasterized[..., 3]
-    mask = tf.reshape(mask, [batch_size, height, width, 1])
+    mask = tf.reshape(mask, [batch_size, num_layers, height, width, 1])
 
     barycentric_coordinates = mask * barycentric_coordinates
-    vertex_ids = tf.gather(triangles, triangle_index[..., 0], batch_dims=0)
+    vertex_ids = tf.gather(triangles, triangle_index[..., 0])
 
+    # Stop gradient for tensors coming out of custom op in order to avoid
+    # confusing Tensorflow that they are differentiable.
+    barycentric_coordinates = tf.stop_gradient(barycentric_coordinates)
+    mask = tf.stop_gradient(mask)
     return fb.Framebuffer(
         foreground_mask=mask,
         triangle_id=triangle_index,
